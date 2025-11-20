@@ -94,7 +94,7 @@ class AuthenticationController extends Controller
                         "refreshToken" => $refreshToken
                     ]);
 
-                    $cookie = cookie("refreshToken", $refreshToken, strtotime("+1 month"), "/", null, null, false, false, "Lax");
+                    $cookie = cookie("refreshToken", $refreshToken, strtotime("+1 month"), "/", config('app.cookieDomain'), null, false, false, "Lax");
 
                     return Response::json(["response" => "signin-ok"], 200)->cookie($cookie)->withHeaders([
                         "Content-Type" => "application/json",

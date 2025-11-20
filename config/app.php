@@ -124,5 +124,6 @@ return [
     ],
     'accessTokenKey' => env('ACCESS_TOKEN', 'null'),
     'refreshTokenKey' => env('REFRESH_TOKEN', 'null'),
-    'accessTokenHeader' => env('JWT_HEADER', 'null')
+    'accessTokenHeader' => env('JWT_HEADER', 'null'),
+    'cookieDomain' => env('COOKIE_DOMAIN', 'null')
 ];
