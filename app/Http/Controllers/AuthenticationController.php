@@ -4,7 +4,12 @@ namespace App\Http\Controllers;
 use Illuminate\Support\Facades\App;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Response;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
+use App\Enums\UserStatus;
+use Illuminate\Support\Carbon;
+use App\Mail\SignUpVerif;
+use Illuminate\Support\Facades\Mail;
 //Services
 use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Storage;
@@ -13,8 +18,7 @@ use Illuminate\Support\Facades\Cookie;
 //Models
 use App\Models\UsersModel;
 
-class AuthenticationController extends Controller
-{
+class AuthenticationController extends Controller {
     public function __construct(public Request $request) {}
 
     public function signUp() {
@@ -53,11 +57,54 @@ class AuthenticationController extends Controller
             $newUser["oldPasswords"] = json_encode([$newUser["password"]]);
             $newUser["dateStamp"] = strtotime("+1 month");
             $newUser["roles"] = json_encode(["Users" => 2001]);
-
+            $newUser["status"] = UserStatus::START->value;
+            $newUser["verification_token"] = base64_encode(Hash::make(Carbon::now()->format('YmdHs')));
+            $newUser["verification_token_exp"] = /* strtotime("+5 hour") */strtotime("+5 hour");
             UsersModel::insert($newUser);
-
+            $verificatioUrl = config("app.localhost_frontend_url") . "signupverify?verifytoken=" . $newUser["verification_token"];
+            $verificationMail = new SignUpVerif($verificatioUrl, $newUser["username"]);
+            Mail::to($newUser["email"])->send($verificationMail);
 
             return Response::json(["response"=>"user-created"], 200);
+        } catch (\Exception $e) {
+            Log::error($e->getMessage()." | line ".$e->getLine()." | errorCode ".$e->getCode());
+            return Response::noContent(500);
+        }
+    }
+
+    public function verifiySignUp() {
+        @["verifytoken" => $token] = $this->request->all();
+
+        @$user = UsersModel::where("verification_token", $token)->get();
+        if (count($user) === 0) return Response::json(["response" => "invalid-token"], 401);
+
+        if (strtotime("now") > $user[0]["verification_token_exp"]) return Response::json(["response" => "token-expired"], 401);
+
+        UsersModel::where("verification_token", $token)->update([
+            "status" => UserStatus::VERIFIED->value
+        ]);
+
+        return Response::json(["response" => "user-verified"], 200);
+    }
+
+    public function renewVerificationToken() {
+        @["verifytoken" => $token] = $this->request->all();
+        try {
+            @$user = UsersModel::where("verification_token", $token)->get();
+
+            if (count($user) === 0) return Response::json(["response" => "invalid-token"], 401);
+
+            $newVerifyToken = base64_encode(Hash::make(Carbon::now()->format('YmdHs')));
+            UsersModel::where("verification_token", $token)->update([
+                "verification_token" => $newVerifyToken,
+                "verification_token_exp" => strtotime("+5 hour")
+            ]);
+
+            $verificatioUrl = config("app.localhost_frontend_url") . "signupverify?verifytoken=" . $newVerifyToken;
+            $verificationMail = new SignUpVerif($verificatioUrl, $user[0]["username"]);
+            Mail::to($user[0]["email"])->send($verificationMail);
+
+            return Response::json(["response"=>"token-sent"], 200);
         } catch (\Exception $e) {
             Log::error($e->getMessage()." | line ".$e->getLine()." | errorCode ".$e->getCode());
             return Response::noContent(500);
@@ -75,15 +122,14 @@ class AuthenticationController extends Controller
 
             $user = UsersModel::where("username", $usernameOrEmail)->orWhere("email", $usernameOrEmail)->get();
 
-            /* ->orWhere("email", $usernameOrEmail)-> */
             if (count($user) < 1) return Response::json(["response" => "not-found"], 401);
 
-/*             return Response::json(json_encode($user[0]["dateStamp"]), 400); */
             if (time() > $user[0]["dateStamp"]) return Response::json(["response" => "datestamp-expired"], 410);
 
             if ($user[0]["attempts"] < 3 || $user[0]["lastAttempt"] < strtotime("-5 minute")) {
                 $match = password_verify($password, $user[0]["password"]);
-                if ($match) {
+                $status = $user[0]["status"];
+                if ($match && $status === "VERIFIED") {
                     $roles = json_decode($user[0]["roles"], true);
                     $accessToken = JwtTrait::signAccessToken($user[0]["username"], $user[0]["_id"], $roles);
                     $refreshToken = JwtTrait::signRefreshToken($user[0]["username"]);
@@ -117,13 +163,13 @@ class AuthenticationController extends Controller
                             "attempts" => $user[0]["attempts"]+1
                         ]);
                     }
-
+                    //create a switch statement to handle bad responses based on user status
                     return Response::json(["response" => "wrong-password"], 401);
                 }
             } else {
                 return Response::json(["response" => "attempts-excedeed"], 401);
             }
-/*             print $match; */
+
         } catch (\Exception $e) {
             Log::error($e->getMessage()." | line ".$e->getLine()." | errorCode ".$e->getCode());
             return Response::noContent(500);
@@ -199,5 +245,4 @@ class AuthenticationController extends Controller
             return Response::noContent(500);
         }
     }
-
 }

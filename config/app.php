@@ -125,5 +125,7 @@ return [
     'accessTokenKey' => env('ACCESS_TOKEN', 'null'),
     'refreshTokenKey' => env('REFRESH_TOKEN', 'null'),
     'accessTokenHeader' => env('JWT_HEADER', 'null'),
-    'cookieDomain' => env('COOKIE_DOMAIN', 'null')
+    'cookieDomain' => env('COOKIE_DOMAIN', 'null'),
+    'localhost_frontend_url' => "http://localhost:4200/",
+    'public_frontend_url' => "https://angtdl.lorenzo-viganego.com/"
 ];

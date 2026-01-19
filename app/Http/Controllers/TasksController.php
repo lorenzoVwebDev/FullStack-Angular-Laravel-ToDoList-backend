@@ -21,24 +21,8 @@ class TasksController extends Controller {
         if (!$_user_id || (!$page && $page != 0) || !$limit) return response()->json(['response' => 'missing-parameters'], 400);
 
         try {
-          $allTasks = TasksModel::get();
-          $allUsers = UsersModel::get();
-
-          $tasksUser = [];
-
-          foreach($allUsers as $user) {
-            if ($user['_id'] === $_user_id) {
-              $tasksUser[] = $user;
-            }
-          }
-
-          if (count($tasksUser) < 1) return Response::json(['response' => 'user-not-found']);
-
-          $userTasks = [];
-
-          foreach($allTasks as $task) {
-            if ($task['_user_id'] === $_user_id) $userTasks[] = $task;
-          }
+          $tasks = TasksModel::where('_user_id', $_user_id)->get();
+          $userTasks = $tasks->toArray();
 
           if (count($userTasks) < 1) return Response::noContent();
 
@@ -107,8 +91,8 @@ class TasksController extends Controller {
         if (isset($addedBefore)) {
             list($date, $useless) = explode(' GMT', $addedBefore);
             $addedBefore = strtotime($date);
-
         }
+
         if (isset($addedAfter)) {
             list($date, $useless) = explode(' GMT', $addedAfter);
             $addedAfter = strtotime($date);
@@ -258,9 +242,7 @@ class TasksController extends Controller {
         $dueDate = $this->request->input('dueDate');
 
         $updatedTask = [
-            "description" => $description,
-/*             "taskDone" => isset($taskDOne) ? $taskDone : null,
-            "dueDate" => isset($dueDate) ? $dueDate : null */
+            "description" => $description
         ];
 
         if (@$taskDone) {

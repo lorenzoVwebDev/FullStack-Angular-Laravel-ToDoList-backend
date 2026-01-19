@@ -6,6 +6,9 @@ use Illuminate\Contracts\Foundation\Application;
 use Illuminate\Support\Facades\App;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Response as ResponseFacade;
+use App\Enums\UserStatus;
+use App\Mail\SignUpVerif;
+use Illuminate\Support\Facades\Mail;
 //Middlewares
 use App\Http\Middleware\VerifyJwt;
 use App\Http\Middleware\AvatarCreator;
@@ -15,21 +18,10 @@ use Illuminate\Database\Eloquent\Factories\Sequence;
 //controllers
 use App\Http\Controllers\AuthenticationController;
 
-/* Route::get("/", function () {
-    return "hello";
-}); */
-/* Route::get("/factories", function () {
-   TasksModel::factory()->count(10)->create();
-}); */
 
 Route::get('/refreshtoken', function (Request $request) {
 })->middleware(VerifyJwt::class);
 
-/* Route::get('/refreshtoken', function (Request $request) {
-    $refreshToken = JwtTrait::signRefreshToken('lorenzo');
-    return ResponseFacade::json(['response' => "signed-cookie"], 200)->cookie('refreshToken', $refreshToken, time() + 86400, '/', '', false, false, false, 'Lax');
-});
- */
 Route::match(['get', 'post', 'delete', 'put'], '/tasks/{id?}', function (Application $app, Request $request, ?string $id = null) {
 
     $pathArray = explode('/',$request->path());
@@ -95,6 +87,14 @@ Route::prefix("authentication")->group(function () {
 
         return $authController->signUp();
     })->middleware(AvatarCreator::class);
+
+    Route::get('/verifytoken', function (Application $app, AuthenticationController $authController) {
+        return $authController->verifiySignUp();
+    });
+
+    Route::get('/newverificationtoken', function (Application $app, AuthenticationController $authController) {
+        return $authController->renewVerificationToken();
+    } );
 
     Route::post('/signin', function (Application $app, AuthenticationController $authController) {
         return $authController->signIn();
